@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>RUSTLINE — Rail Yard Tactical FPS</title>
+<style>
+:root{--amber:#f0a830;--teal:#35b5b0;--ink:#e9e6df;--muted:#98a0a8;--panel:rgba(20,17,13,.82);--line:rgba(240,168,48,.35);--gap:6px}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a1611;color:var(--ink);font-family:"Segoe UI",system-ui,sans-serif}
+#game{position:fixed;inset:0}
+#game canvas{display:block}
+#hud{position:fixed;inset:0;pointer-events:none;user-select:none}
+#crosshair{position:absolute;left:50%;top:50%;width:0;height:0;--gap:6px}
+#crosshair i{position:absolute;background:var(--ink);box-shadow:0 0 2px #000}
+#crosshair i:nth-child(1){left:-1px;top:calc(-14px - var(--gap));width:2px;height:8px}
+#crosshair i:nth-child(2){left:-1px;top:calc(6px + var(--gap));width:2px;height:8px}
+#crosshair i:nth-child(3){left:calc(-14px - var(--gap));top:-1px;width:8px;height:2px}
+#crosshair i:nth-child(4){left:calc(6px + var(--gap));top:-1px;width:8px;height:2px}
+#crosshair b{position:absolute;left:-2px;top:-2px;width:4px;height:4px;background:var(--amber);border-radius:50%}
+#hitmarker{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;opacity:0}
+#hitmarker.show{opacity:1}
+#hitmarker i{position:absolute;left:50%;top:50%;width:2px;height:9px;background:#fff}
+#hitmarker i:nth-child(1){transform:translate(-8px,-11px) rotate(45deg)}
+#hitmarker i:nth-child(2){transform:translate(6px,-11px) rotate(-45deg)}
+#hitmarker i:nth-child(3){transform:translate(-8px,2px) rotate(-45deg)}
+#hitmarker i:nth-child(4){transform:translate(6px,2px) rotate(45deg)}
+#hitmarker.kill i{background:#ff5a4a}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+#health{position:absolute;left:18px;bottom:18px;font-size:22px;font-weight:700}
+#health small{display:block;font-size:11px;color:var(--muted);letter-spacing:.12em}
+#health-num{color:#7ee787}
+#armor-num{color:var(--teal);font-size:15px;margin-left:8px}
+#ammo{position:absolute;right:18px;bottom:18px;text-align:right;font-size:26px;font-weight:700}
+#ammo small{display:block;font-size:11px;color:var(--muted);letter-spacing:.12em}
+#ammo-reserve{color:var(--muted);font-size:16px}
+#weapon-name{position:absolute;right:18px;bottom:86px;color:var(--amber);font-weight:700;letter-spacing:.14em;font-size:13px}
+#grenades{position:absolute;right:18px;bottom:108px;color:var(--muted);font-size:13px}
+#money{position:absolute;left:18px;bottom:86px;color:var(--amber);font-weight:700;font-size:18px}
+#money::before{content:"$ "}
+#score{position:absolute;left:50%;top:14px;transform:translateX(-50%);font-size:20px;font-weight:800;text-align:center}
+#score-v{color:var(--amber)} #score-s{color:var(--teal)}
+#round-num{font-size:11px;color:var(--muted);letter-spacing:.2em}
+#timer{position:absolute;left:50%;top:64px;transform:translateX(-50%);font-size:26px;font-weight:800}
+#bomb-status{position:absolute;left:50%;top:102px;transform:translateX(-50%);color:var(--amber);font-size:13px;font-weight:700}
+#killfeed{position:absolute;right:18px;top:16px;text-align:right;font-size:13px;line-height:1.7;color:var(--ink)}
+#killfeed div{background:var(--panel);border-radius:4px;padding:2px 8px;margin-bottom:4px}
+#minimap{position:absolute;left:18px;top:16px;border:1px solid var(--line);border-radius:6px;background:#17130f}
+#comms{position:absolute;left:18px;top:152px;font-size:12px;line-height:1.6;color:var(--muted);white-space:pre-line;text-shadow:0 1px 2px #000}
+#slots{position:absolute;right:18px;bottom:132px;color:var(--muted);font-size:12px;letter-spacing:.06em}
+#hint{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);color:var(--muted);font-size:12px}
+#damage-flash{position:fixed;inset:0;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,transparent 55%,rgba(255,40,20,.55) 100%)}
+#damage-flash.on{opacity:1;transition:opacity .05s}
+#damage-flash{transition:opacity .5s}
+</style>
+<script type="importmap">{"imports":{"three":"./vendor/three/three.module.min.js"}}</script>
+</head>
+<body>
+<div id="game"></div>
+<div id="hud">
+  <div id="crosshair"><i></i><i></i><i></i><i></i><b></b></div>
+  <div id="hitmarker"><i></i><i></i><i></i><i></i></div>
+  <div id="health" class="panel"><small>HEALTH / ARMOR</small><span id="health-num">100</span><span id="armor-num">0</span></div>
+  <div id="ammo" class="panel"><small>AMMO</small><span id="ammo-mag">15</span> / <span id="ammo-reserve">70</span></div>
+  <div id="weapon-name">P9</div>
+  <div id="grenades">Grenades: 1</div>
+  <div id="money">800</div>
+  <div id="score" class="panel"><span id="score-v">0</span> : <span id="score-s">0</span><div id="round-num">ROUND 1</div></div>
+  <div id="timer">0:00</div>
+  <div id="bomb-status"></div>
+  <div id="killfeed"></div>
+  <canvas id="minimap" width="168" height="128"></canvas>
+  <div id="comms"></div>
+  <div id="slots"></div>
+  <div id="hint">WASD move · Shift walk · Space jump · C crouch · Click fire · R reload · G frag · F smoke · E plant/defuse · B buy</div>
+</div>
+<div id="damage-flash"></div>
+<div id="banner"><div id="banner-title"></div><div id="banner-sub"></div></div>
+<div id="buy-panel"><h2>BUY — FREEZE TIME</h2><div id="buy-money">$800</div><div id="buy-items"></div><p>Keys: 1 VK-7 $2700 · 2 Kestrel $1500 · 3 Grenade $300 · 4 Armor $650 · 5 Smoke $250 — B closes</p></div>
+<div id="overlay"><div class="card">
+  <h1 id="overlay-title">RUSTLINE</h1>
+  <p id="overlay-copy">Rail Yard Tactical FPS — Vanguard vs Sentinel, first to 8 rounds. Plant the charge at Site A or B, or wipe the enemy team. Dust, rust and amber light.</p>
+  <button id="play">PLAY</button>
+  <div class="keys">
+    <span><b>W A S D</b> move</span><span><b>Mouse</b> aim</span><span><b>Click</b> fire</span>
+    <span><b>R</b> reload</span><span><b>G</b> frag</span><span><b>F</b> smoke</span><span><b>E</b> plant / defuse</span>
+    <span><b>1–3</b> weapon</span><span><b>B</b> buy (freeze)</span><span><b>Space</b> jump</span><span><b>C</b> crouch</span>
+  </div>
+</div></div>
+<style>
+#banner{position:fixed;left:50%;top:30%;transform:translateX(-50%);text-align:center;pointer-events:none;display:none}
+#banner.show{display:block}
+#banner-title{font-size:44px;font-weight:900;letter-spacing:.08em;color:var(--amber);text-shadow:0 2px 12px #000}
+#banner-sub{font-size:16px;color:var(--ink);margin-top:6px}
+#buy-panel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:420px;max-width:92vw;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;display:none;z-index:5}
+#buy-panel.show{display:block}
+#buy-panel h2{color:var(--amber);font-size:18px;letter-spacing:.12em}
+#buy-money{color:var(--amber);font-weight:700;margin:6px 0 10px}
+#buy-items div{display:flex;justify-content:space-between;padding:7px 4px;border-bottom:1px solid rgba(255,255,255,.08);font-size:14px}
+#buy-items b{color:var(--amber)}
+#buy-panel p{color:var(--muted);font-size:12px;margin-top:10px;line-height:1.5}
+#overlay{position:fixed;inset:0;background:rgba(12,10,8,.78);display:flex;align-items:center;justify-content:center;z-index:10}
+#overlay.hide{display:none}
+#overlay .card{max-width:560px;text-align:center;padding:32px}
+#overlay h1{font-size:56px;letter-spacing:.18em;color:var(--amber);text-shadow:0 0 24px rgba(240,168,48,.4)}
+#overlay p{color:var(--muted);margin:14px 0 22px;line-height:1.6}
+#play{pointer-events:auto;cursor:pointer;background:var(--amber);color:#1a1611;border:0;border-radius:8px;padding:14px 44px;font-size:20px;font-weight:800;letter-spacing:.12em}
+#play:hover{filter:brightness(1.1)}
+#overlay .keys{margin-top:22px;display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:center;color:var(--muted);font-size:13px}
+#overlay .keys b{color:var(--ink)}
+</style>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
