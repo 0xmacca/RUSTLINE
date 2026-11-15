@@ -1,0 +1,38 @@
+// RUSTLINE — the entry program (Node 22, standard library only). It hands
+// the game in: copies this repository's game/ and screenshots/ to the output
+// directory and writes /output/dossier.json with the kit's vendored
+// make.fun library, the same library the scorer runs. Outside the grader,
+// MAKEFUN_OUTPUT_DIR stands in for /output:
+//
+//   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
+//
+// The caps below are the competition's own gate caps (reference/gate.json):
+// the dossier text is capped at 160 KiB, at most 4 screenshots of at most
+// 256 KiB, game/ at most 993 entries and 48 MiB. Passing them here makes
+// this program fail exactly where the scorer would refuse the entry.
+import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { buildDossier } from './vendor/makefun-threejs.ts';
+
+const here = fileURLToPath(new URL('.', import.meta.url));
+const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+const gameDir = join(here, 'game');
+const shotsDir = join(here, 'screenshots');
+
+mkdirSync(out, { recursive: true });
+cpSync(gameDir, join(out, 'game'), { recursive: true });
+mkdirSync(join(out, 'screenshots'), { recursive: true });
+if (existsSync(shotsDir)) {
+  cpSync(shotsDir, join(out, 'screenshots'), { recursive: true });
+}
+
+writeFileSync(
+  join(out, 'dossier.json'),
+  buildDossier(out, {
+    text_max_bytes: 163840,
+    screenshots: { max: 4, max_bytes: 262144 },
+    game_max_files: 993,
+    game_max_bytes: 50331648,
+  }),
+);
